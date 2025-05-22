@@ -24,7 +24,7 @@ func main() {
 		if cmd, ok := commands[userCommand]; !ok {
 			fmt.Println("Unknown command")
 		} else {
-			err := cmd.callback()
+			err := cmd.callback(&conf)
 			if err != nil {
 				fmt.Println(err)
 			}
