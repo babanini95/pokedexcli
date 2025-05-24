@@ -4,11 +4,15 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
+
+	"github.com/babanini95/pokedexcli/internal"
 )
 
 func main() {
 	commands = generateCommand()
 	scanner := bufio.NewScanner(os.Stdin)
+	conf.Cache = internal.NewCache(5 * time.Second)
 
 	for {
 		fmt.Print("Pokedex > ")

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -14,8 +15,9 @@ type cliCommand struct {
 }
 
 type config struct {
-	Next *string
-	Prev *string
+	Next  *string
+	Prev  *string
+	Cache *internal.Cache
 }
 
 var commands map[string]cliCommand
@@ -82,10 +84,30 @@ func commandMapB(c *config) error {
 }
 
 func getDataAreaResult(url string, c *config) error {
-	dataArea, err := internal.GetLocations(url)
-	if err != nil {
-		return err
+	var dataArea internal.LocationAreas
+	var err error
+
+	data, ok := c.Cache.Get(url)
+
+	if ok {
+		err = json.Unmarshal(data, &dataArea)
+		if err != nil {
+			return err
+		}
+	} else {
+		dataArea, err = internal.GetLocations(url)
+		if err != nil {
+			return err
+		}
+
+		cacheValue, err := json.Marshal(dataArea)
+		if err != nil {
+			return err
+		}
+
+		c.Cache.Add(url, cacheValue)
 	}
+
 	c.Next = dataArea.Next
 	c.Prev = dataArea.Previous
 	for _, result := range dataArea.Results {
