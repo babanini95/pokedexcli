@@ -59,12 +59,12 @@ func generateCommand() map[string]cliCommand {
 		},
 		"inspect": {
 			name:        "inspect",
-			description: "Shows Pokemon's name, height, weight, stats and type(s)",
+			description: "Shows Pokemon's name, height, weight, stats and type(s). Accept pokemon's name as argument",
 			callback:    commandInspect,
 		},
 		"pokedex": {
 			name:        "pokedex",
-			description: "List all Pokemon you have been caught",
+			description: "Lists all Pokemon you have been caught",
 			callback:    commandPokedex,
 		},
 	}
