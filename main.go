@@ -24,11 +24,15 @@ func main() {
 		}
 
 		userCommand := cleanedInput[0]
+		args := []string{}
+		if len(cleanedInput) > 1 {
+			args = cleanedInput[1:]
+		}
 
 		if cmd, ok := commands[userCommand]; !ok {
 			fmt.Println("Unknown command")
 		} else {
-			err := cmd.callback(&conf)
+			err := cmd.callback(&conf, args)
 			if err != nil {
 				fmt.Println(err)
 			}

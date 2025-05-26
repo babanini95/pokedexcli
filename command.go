@@ -11,7 +11,7 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(*config) error
+	callback    func(*config, []string) error
 }
 
 type config struct {
@@ -45,16 +45,21 @@ func generateCommand() map[string]cliCommand {
 			description: "Displays the previous 20 location areas in Pokemon world",
 			callback:    commandMapB,
 		},
+		"explore": {
+			name:        "explore",
+			description: "Lists all the pokemon located in a given area",
+			callback:    commandExplore,
+		},
 	}
 }
 
-func commandExit(c *config) error {
+func commandExit(c *config, args []string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(c *config) error {
+func commandHelp(c *config, args []string) error {
 	output := "Welcome to the Pokedex!\nUsage:\n"
 
 	for _, command := range commands {
@@ -65,7 +70,7 @@ func commandHelp(c *config) error {
 	return nil
 }
 
-func commandMap(c *config) error {
+func commandMap(c *config, args []string) error {
 	url := "https://pokeapi.co/api/v2/location-area/"
 	if c.Next != nil {
 		url = *c.Next
@@ -74,13 +79,53 @@ func commandMap(c *config) error {
 	return err
 }
 
-func commandMapB(c *config) error {
+func commandMapB(c *config, args []string) error {
 	if c.Prev == nil {
 		fmt.Println("you're on the first page")
 		return nil
 	}
 	err := getDataAreaResult(*c.Prev, c)
 	return err
+}
+
+func commandExplore(c *config, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("unknown command")
+	}
+	baseUrl := "https://pokeapi.co/api/v2/location-area/"
+	url := baseUrl + args[0]
+	var areaData internal.AreaData
+	var err error
+	fmt.Println("url: " + url)
+	data, ok := c.Cache.Get(url)
+	if ok {
+		err = json.Unmarshal(data, &areaData)
+		if err != nil {
+			return err
+		}
+	} else {
+		areaData, err = internal.GetEncounteredPokemon(url)
+		if err != nil {
+			return err
+		}
+
+		cacheValue, err := json.Marshal(areaData)
+		if err != nil {
+			return err
+		}
+
+		// Both name and Id return the same data
+		urlWithName := baseUrl + areaData.Name
+		urlWithId := fmt.Sprintf("%s%d", baseUrl, areaData.ID)
+		c.Cache.Add(urlWithName, cacheValue)
+		c.Cache.Add(urlWithId, cacheValue)
+	}
+
+	fmt.Printf("Exploring %s...\nFound Pokemon:\n", areaData.Name)
+	for _, pokemon := range areaData.PokemonEncounters {
+		fmt.Println(" - " + pokemon.Pokemon.Name)
+	}
+	return nil
 }
 
 func getDataAreaResult(url string, c *config) error {
