@@ -57,6 +57,16 @@ func generateCommand() map[string]cliCommand {
 			description: "Try catching the pokemon. Accept pokemon's name or ID as argument",
 			callback:    commandCatch,
 		},
+		"inspect": {
+			name:        "inspect",
+			description: "Shows Pokemon's name, height, weight, stats and type(s)",
+			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "List all Pokemon you have been caught",
+			callback:    commandPokedex,
+		},
 	}
 }
 
@@ -136,32 +146,9 @@ func commandExplore(c *config, args []string) error {
 }
 
 func commandCatch(c *config, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("unknown argument")
-	}
-	var pokemonData internal.PokemonData
-	var err error
-	baseUrl := "https://pokeapi.co/api/v2/pokemon/"
-	url := baseUrl + args[0]
-
-	cacheData, ok := c.Cache.Get(url)
-	if ok {
-		err = json.Unmarshal(cacheData, &pokemonData)
-		if err != nil {
-			return err
-		}
-	} else {
-		pokemonData, err = internal.GetPokemonData(url)
-		if err != nil {
-			return err
-		}
-
-		cacheValue, err := json.Marshal(pokemonData)
-		if err != nil {
-			return err
-		}
-
-		c.Cache.Add(url, cacheValue)
+	pokemonData, err := getPokemonData(c, args)
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("Throwing a Pokeball at %s...\n", pokemonData.Name)
@@ -169,8 +156,39 @@ func commandCatch(c *config, args []string) error {
 	if randValue > 40 {
 		fmt.Printf("%s escaped!\n", pokemonData.Name)
 	} else {
-		fmt.Printf("%s was caught!\n", pokemonData.Name)
+		fmt.Printf("%s was caught!\nYou may now inspect it with the inspect command.\n", pokemonData.Name)
 		c.Pokedex[pokemonData.Name] = pokemonData
+	}
+	return nil
+}
+
+func commandInspect(c *config, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("unknown argument")
+	}
+
+	data, ok := c.Pokedex[args[0]]
+	if !ok {
+		return fmt.Errorf("%s has not been caught", args[0])
+	}
+
+	fmt.Printf("Name: %s\nHeight: %d\nWeight: %d\n", data.Name, data.Height, data.Weight)
+	fmt.Println("Stats:")
+	for _, stat := range data.Stats {
+		fmt.Printf("  -%s: %d\n", stat.Stat.Name, stat.BaseStat)
+	}
+	fmt.Println("Types:")
+	for _, typ := range data.Types {
+		fmt.Printf("  - %s\n", typ.Type.Name)
+	}
+
+	return nil
+}
+
+func commandPokedex(c *config, args []string) error {
+	fmt.Println("Your Pokedex:")
+	for name, _ := range c.Pokedex {
+		fmt.Println("  - " + name)
 	}
 	return nil
 }
@@ -206,4 +224,34 @@ func getDataAreaResult(url string, c *config) error {
 		fmt.Println(result.Name)
 	}
 	return nil
+}
+
+func getPokemonData(c *config, args []string) (pokemonData internal.PokemonData, err error) {
+	if len(args) != 1 {
+		return internal.PokemonData{}, fmt.Errorf("unknown argument")
+	}
+
+	baseUrl := "https://pokeapi.co/api/v2/pokemon/"
+	url := baseUrl + args[0]
+
+	cacheData, ok := c.Cache.Get(url)
+	if ok {
+		err = json.Unmarshal(cacheData, &pokemonData)
+		if err != nil {
+			return internal.PokemonData{}, err
+		}
+	} else {
+		pokemonData, err = internal.GetPokemonData(url)
+		if err != nil {
+			return internal.PokemonData{}, err
+		}
+
+		cacheValue, err := json.Marshal(pokemonData)
+		if err != nil {
+			return internal.PokemonData{}, err
+		}
+
+		c.Cache.Add(url, cacheValue)
+	}
+	return pokemonData, nil
 }
