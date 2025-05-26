@@ -13,6 +13,7 @@ func main() {
 	commands = generateCommand()
 	scanner := bufio.NewScanner(os.Stdin)
 	conf.Cache = internal.NewCache(5 * time.Second)
+	conf.Pokedex = make(map[string]internal.PokemonData)
 
 	for {
 		fmt.Print("Pokedex > ")

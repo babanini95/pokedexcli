@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 
 	"github.com/babanini95/pokedexcli/internal"
@@ -15,9 +16,10 @@ type cliCommand struct {
 }
 
 type config struct {
-	Next  *string
-	Prev  *string
-	Cache *internal.Cache
+	Next    *string
+	Prev    *string
+	Cache   *internal.Cache
+	Pokedex map[string]internal.PokemonData
 }
 
 var commands map[string]cliCommand
@@ -47,8 +49,13 @@ func generateCommand() map[string]cliCommand {
 		},
 		"explore": {
 			name:        "explore",
-			description: "Lists all the pokemon located in a given area",
+			description: "Lists all the pokemon located in a given area. Accept area's name or ID as argument",
 			callback:    commandExplore,
+		},
+		"catch": {
+			name:        "catch",
+			description: "Try catching the pokemon. Accept pokemon's name or ID as argument",
+			callback:    commandCatch,
 		},
 	}
 }
@@ -124,6 +131,46 @@ func commandExplore(c *config, args []string) error {
 	fmt.Printf("Exploring %s...\nFound Pokemon:\n", areaData.Name)
 	for _, pokemon := range areaData.PokemonEncounters {
 		fmt.Println(" - " + pokemon.Pokemon.Name)
+	}
+	return nil
+}
+
+func commandCatch(c *config, args []string) error {
+	if len(args) != 1 {
+		return fmt.Errorf("unknown argument")
+	}
+	var pokemonData internal.PokemonData
+	var err error
+	baseUrl := "https://pokeapi.co/api/v2/pokemon/"
+	url := baseUrl + args[0]
+
+	cacheData, ok := c.Cache.Get(url)
+	if ok {
+		err = json.Unmarshal(cacheData, &pokemonData)
+		if err != nil {
+			return err
+		}
+	} else {
+		pokemonData, err = internal.GetPokemonData(url)
+		if err != nil {
+			return err
+		}
+
+		cacheValue, err := json.Marshal(pokemonData)
+		if err != nil {
+			return err
+		}
+
+		c.Cache.Add(url, cacheValue)
+	}
+
+	fmt.Printf("Throwing a Pokeball at %s...\n", pokemonData.Name)
+	randValue := rand.Int31n(int32(pokemonData.BaseExperience))
+	if randValue > 40 {
+		fmt.Printf("%s escaped!\n", pokemonData.Name)
+	} else {
+		fmt.Printf("%s was caught!\n", pokemonData.Name)
+		c.Pokedex[pokemonData.Name] = pokemonData
 	}
 	return nil
 }
